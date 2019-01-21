@@ -24,7 +24,7 @@ typedef float(DistanceEstimator)(Vector, int&);
 
 RayHit RayMarch(Ray ray, DistanceEstimator* estimator, float maxDistance=100, float maxHits=99) {
     float d = 0;
-    float closest = 0;
+    float closest = 1e9;
     float totalD = 0;
     int steps = 0;
     int hitType;

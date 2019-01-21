@@ -50,8 +50,8 @@ public:
         float aspect = (float)width / (float)height;
         // Magic number is in fact pi / 2 / 180
         float pixelMult = tanf(fov * 0.00872664625);
-        float px = ((x + 0.5 + random()*1) / (float)width * 2 - 1) * pixelMult * aspect;
-        float py = ((height - y + 0.5 + random()*1) / (float)height * 2 - 1) * pixelMult;
+        float px = ((x + 0.5 + random()*0) / (float)width * 2 - 1) * pixelMult * aspect;
+        float py = ((height - y + 0.5 + random()*0) / (float)height * 2 - 1) * pixelMult;
 
         Vector target = !Vector(px, py, 1);
 

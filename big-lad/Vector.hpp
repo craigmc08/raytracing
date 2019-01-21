@@ -12,30 +12,42 @@ struct Vector {
         z = c;
     }
 
-    Vector operator+(Vector o) {
-        return Vector(x + o.x, y + o.y, z + o.z);
+    friend Vector operator+(Vector a, Vector b) {
+        return Vector(a.x + b.x, a.y + b.y, a.z + b.z);
     }
-    Vector operator+(float o) {
-        return Vector(x + o, y + o, z + o);
+    friend Vector operator+(Vector a, float b) {
+        return Vector(a.x + b, a.y + b, a.z + b);
     }
-    Vector operator-(Vector o) {
-        return *this + o * -1;
+    friend Vector operator+(float b, Vector a) {
+        return Vector(a.x + b, a.y + b, a.z + b);
     }
-    Vector operator-(float o) {
-        return *this + o * -1;
+    friend Vector operator-(Vector a, Vector b) {
+        return a + b * -1;
+    }
+    friend Vector operator-(Vector a, float b) {
+        return a + b*-1;
+    }
+    friend Vector operator-(float a, Vector b) {
+        return a + b*-1;
     }
 
-    Vector operator*(Vector o) {
-        return Vector(x * o.x, y * o.y, z * o.z);
+    friend Vector operator*(Vector a, Vector b) {
+        return Vector(a.x * b.x, a.y * b.y, a.z * b.z);
     }
-    Vector operator*(float o) {
-        return Vector(x * o, y * o, z * o);
+    friend Vector operator*(Vector a, float b) {
+        return Vector(a.x * b, a.y * b, a.z * b);
     }
-    Vector operator/(Vector o) {
-        return Vector(x / o.x, y / o.y, z / o.z);
+    friend Vector operator*(float b, Vector a) {
+        return Vector(a.x * b, a.y * b, a.z * b);
     }
-    Vector operator/(float o) {
-        return *this * (1. / o);
+    friend Vector operator/(Vector a, Vector b) {
+        return Vector(a.x / b.x, a.y / b.y, a.z / b.z);
+    }
+    friend Vector operator/(Vector a, float b) {
+        return a * (1. / b);
+    }
+    friend Vector operator/(float a, Vector b) {
+        return Vector(a / b.x, a / b.y, a / b.z);
     }
 
     float operator%(Vector o) {
@@ -67,5 +79,9 @@ struct Vector {
         return acosf(*this % b);
     }
 };
+
+Vector powv(Vector v, float p) {
+    return Vector(powf(v.x, p), powf(v.y, p), powf(v.z, p));
+}
 
 #endif

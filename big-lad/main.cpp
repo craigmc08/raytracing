@@ -7,10 +7,10 @@
 #include "util.hpp"
 
 #define WIDTH 384
-#define HEIGHT 216 
+#define HEIGHT 216
 #define FOV 90
 #define BOUNCES 4
-#define SAMPLES 32
+#define SAMPLES 16
 
 #define FILENAME "image.ppm"
 
@@ -24,10 +24,12 @@ float cameraZRot = -PI / 6;
 // float azimuth = -PI / 2;
 // float cameraZRot = 0;
 
-Vector Luminance(int x, int y, Camera camera);
-Vector Trace(Ray ray, int depth=0);
-Vector TraceLight(RayHit hit, Vector &lightDir);
+Vector Trace(Ray ray, int samples, int depth=0);
+Vector IncomingLuminance(RayHit surface, int samples, int depth);
+Vector IncomingLight(RayHit hit, Vector &lightDir);
 float GetDistance(Vector position, int &hitType);
+
+Vector CheckerColor(Vector pos);
 
 int main() {
     FILE* fp;
@@ -46,11 +48,10 @@ int main() {
     int pixels[WIDTH * HEIGHT * 3];
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = WIDTH; x--;) {
-            // Ray ray = camera.getCameraRay(x, y);
-            // printf("\n[%f, %f, %f] ", ray.direction.x, ray.direction.y, ray.direction.z);
-            Vector luminance = Luminance(x, y, camera);
+            Vector luminance = Trace(camera.getCameraRay(x, y), SAMPLES);
+            luminance = luminance + (5. / 241.);
+            luminance = luminance / (1 + luminance);
             Vector color = luminance * 255;
-            // int i = (y * WIDTH + x) * 3;
             int r = color.x > 255 ? 255 : (int)color.x;
             int g = color.y > 255 ? 255 : (int)color.y;
             int b = color.z > 255 ? 255 : (int)color.z;
@@ -61,14 +62,15 @@ int main() {
     fclose(fp);
 }
 
-Vector Luminance(int x, int y, Camera camera) {
-    Vector sum(0);
-    for (int p = SAMPLES; p--;) {
-        Ray ray = camera.getCameraRay(x, y);
-        sum = sum + Trace(ray);
-    }
-    // Divide by samples and multiply by set volume (surface area of unit hemisphere)
-    Vector incoming = sum / SAMPLES * TWO_PI;
+Vector Trace(Ray ray, int samples, int depth) {
+    if (depth > BOUNCES) return Vector(0);
+
+    RayHit surface = RayMarch(ray, &GetDistance);
+
+    // Special case for sky
+    if (surface.material == 0) return Vector(0); // sky color
+
+    Vector incoming = IncomingLuminance(surface, samples, depth);
 
     // Could ray march and get material to determine emission
     Vector emission(0);
@@ -76,7 +78,7 @@ Vector Luminance(int x, int y, Camera camera) {
     return emission + incoming;
 }
 
-Vector TraceLight(RayHit hit, Vector &lightDir) {
+Vector IncomingLight(RayHit hit, Vector &lightDir) {
     int material = hit.material;
     Vector normal = hit.normal;
     Vector hitPos = hit.hitPos;
@@ -84,15 +86,15 @@ Vector TraceLight(RayHit hit, Vector &lightDir) {
     if (material == 0) return Vector(0);
 
     Vector lightPos(0, 5, 0);
-    Vector lightColor(1, 0.95, 0.85);
-    float sqrLightRange = 10 * 10;
+    Vector lightColor = Vector(1, 0.95, 0.85) * 2;
+    float sqrLightRange = 15 * 15;
 
     Vector lightDisp = lightPos - hitPos;
     lightDir = !lightDisp;
 
     float sqrLightDist = lightDisp.sqrMagnitude();
     float lightPower = max(0, (sqrLightRange - sqrLightDist) / sqrLightRange);
-    float lightStrength = 1;
+    float lightStrength = lightPower;
 
     if (lightStrength > 0) {
         Ray lightRay = {
@@ -107,62 +109,74 @@ Vector TraceLight(RayHit hit, Vector &lightDir) {
 
     return lightColor * lightStrength;
 }
-Vector Trace(Ray ray, int depth) {
+Vector IncomingLuminance(RayHit surface, int samples, int depth) {
     if (depth > BOUNCES) return Vector(0);
 
-    RayHit hit = RayMarch(ray, &GetDistance);
-    int material = hit.material;
-    Vector normal = hit.normal;
-    Vector hitPos = hit.hitPos;
+    Ray ray = surface.ray;
+    int material = surface.material;
+    Vector normal = surface.normal;
+    Vector hitPos = surface.hitPos;
 
     Vector lightDir;
-    Vector incomingLight = TraceLight(hit, lightDir);
+    Vector incomingLight = IncomingLight(surface, lightDir);
 
-    if (material == 0) return Vector(0);
+    Vector sum(0);
+
+    Vector ballColor(1, 0.6, 0.9);
 
     if (material == 1) {
-        // Ball
-        Vector newDir = ray.direction + normal * (normal % ray.direction * -2);
-        Ray reflectRay = {
-            hitPos + normal * 0.05,
-            newDir
-        };
-        Vector L_i = Trace(reflectRay, depth + 1);
-
-        // Specular highlight of light
-        Vector halfVector = !(lightDir + ray.direction);
+        // Ball incoming light
+        // Vector halfLight = !(lightDir + ray.direction);
         float lightAngle = normal.angleTo(lightDir);
-        float highlight = exp(-lightAngle * lightAngle / 0.0004);
-        incomingLight = incomingLight * highlight;
-
-        return Vector(1, 0.6, 0.9) * (L_i + incomingLight) / TWO_PI;
-    }
-    if (material == 2) {
+        // Gaussian microfacet brdf
+        float lightStrength = exp(-lightAngle * lightAngle / 0.01);
+        incomingLight = ballColor * incomingLight * lightStrength / TWO_PI;
+    } else if (material == 2) {
         // Floor
-        // Calculate checker floor color
-        const float spacing = 2;
-        const float quarterSpacing = spacing / 4;
-        float cx = fmodf(fabsf(hitPos.x) + quarterSpacing, spacing) / spacing * 2 - 1;
-        float cy = fmodf(fabsf(hitPos.z) + quarterSpacing, spacing) / spacing * 2 - 1;
-        Vector reflectance = cy * cx < 0 ? Vector(0.7) : Vector(1);
+        Vector reflectance = CheckerColor(hitPos);
+        incomingLight = reflectance * incomingLight * (lightDir % normal) / TWO_PI;
+    }
+    sum = incomingLight * samples;
 
-        // Incoming light
-        Vector tangent = normal.cross(ray.direction);
-        Vector bitangent = normal.cross(tangent);
-        float theta = random() * TWO_PI;
-        float phi = random() * PI / 2;
-        Vector newDir = (tangent * cosf(theta) + bitangent * sinf(theta)) * cosf(phi) + normal * sinf(phi);
-        Ray newRay = {
-            hitPos + normal * 0.05,
-            newDir
-        };
-        Vector L_i = Trace(newRay, depth + 1) * newDir % normal;
-        incomingLight = incomingLight * (lightDir % normal);
+    for (int p = samples; p--;) {
+        if (material == 1) {
+            // Ball
+            Vector newDir = ray.direction + normal * (normal % ray.direction * -2);
+            Ray reflectRay = {
+                hitPos + normal * 0.05,
+                newDir
+            };
+            Vector L_i = Trace(reflectRay, 1, depth + 1);
+            Vector reflectance = ballColor;
 
-        return reflectance * (L_i + incomingLight) / TWO_PI;
+            Vector value = reflectance * L_i / TWO_PI;
+            sum = sum + value;
+        } else if (material == 2) {
+            // Floor
+            Vector reflectance = CheckerColor(hitPos);
+
+            // Incoming light
+            Vector tangent = normal.cross(ray.direction);
+            Vector bitangent = normal.cross(tangent);
+            float theta = random() * TWO_PI;
+            float phi = random() * PI / 2;
+            Vector newDir = (tangent * cosf(theta) + bitangent * sinf(theta)) * cosf(phi) + normal * sinf(phi);
+            Ray newRay = {
+                hitPos + normal * 0.05,
+                newDir
+            };
+            Vector L_i = Trace(newRay, 1, depth + 1) * newDir % normal;
+
+            Vector value = reflectance * L_i / TWO_PI;
+
+            sum = sum + value;
+        }
     }
 
-    return Vector(0);
+    // Final step of monte carlo integration:
+    // divide by samples and multiply by set volume
+    sum = sum / (samples * 2) * TWO_PI;
+    return sum;
 }
 
 float GetDistance(Vector p, int &hitType) {
@@ -183,4 +197,12 @@ float GetDistance(Vector p, int &hitType) {
     }
 
     return distance;
+}
+
+Vector CheckerColor(Vector pos) {
+    const float spacing = 2;
+    const float quarterSpacing = spacing / 4;
+    float cx = fmodf(fabsf(pos.x) + quarterSpacing, spacing) / spacing * 2 - 1;
+    float cy = fmodf(fabsf(pos.z) + quarterSpacing, spacing) / spacing * 2 - 1;
+    return cy * cx < 0 ? Vector(0.7) : Vector(1);
 }
