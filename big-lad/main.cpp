@@ -12,9 +12,10 @@
 #include "Ray.hpp"
 #include "Camera.hpp"
 #include "util.hpp"
+#include "stopwatch.hpp"
 
-#define WIDTH 384 * 4
-#define HEIGHT 216 * 4
+#define WIDTH 1920
+#define HEIGHT 1080
 #define TILE_WIDTH 32
 #define TILE_HEIGHT TILE_WIDTH
 #define FOV 90
@@ -26,15 +27,12 @@
 #define PI 3.141592653
 #define TWO_PI 6.283185307
 
-constexpr int TILE_H_COUNT = HEIGHT / TILE_HEIGHT;
-constexpr int TILE_W_COUNT = WIDTH / TILE_WIDTH;
+constexpr int TILE_H_COUNT = HEIGHT / TILE_HEIGHT + 1;
+constexpr int TILE_W_COUNT = WIDTH / TILE_WIDTH + 1;
 
 Vector cameraPos(-3, 5, 5);
 float azimuth = -PI / 4;
 float cameraZRot = -PI / 6;
-// Vector cameraPos(0, 5, 0);
-// float azimuth = -PI / 2;
-// float cameraZRot = 0;
 
 Vector Trace(Ray ray, int samples, int depth=0);
 Vector IncomingLuminance(RayHit surface, int samples, int depth);
@@ -133,15 +131,20 @@ int main() {
     printf("Detected %d threads.\n", n_threads);
     std::vector<std::thread> threads{n_threads};
 
-
+    stopwatch runtime;
+    
     for (auto &t : threads) t = std::thread{Task{}};
 
     // Wait for threads to finish (is this good?)
     while (doneThreads != n_threads) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     for (auto &t: threads) t.join();
+
+    long long millis = runtime.elapsed_millis();
+    float seconds = (float)millis / 1000.;
+    printf("Took %f seconds, avg. of %f tiles per second\n", seconds, TILE_H_COUNT * TILE_W_COUNT / seconds);
 
     for (int i = 0; i < WIDTH * HEIGHT * 3; i++) {
         fprintf(fp, "%c", pixels[i]);
