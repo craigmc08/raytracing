@@ -1,17 +1,27 @@
+// inspired by that postcard sized raytracer
+// multi-threading based on https://bunjevac.net/2019/02/14/parallelizing-raytracer-in-a-weekend.html
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <random>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <vector>
 
 #include "Vector.hpp"
 #include "Ray.hpp"
 #include "Camera.hpp"
 #include "util.hpp"
+#include "stopwatch.hpp"
 
-#define WIDTH 384
-#define HEIGHT 216
+#define WIDTH 1920
+#define HEIGHT 1080
+#define TILE_WIDTH 32
+#define TILE_HEIGHT TILE_WIDTH
 #define FOV 90
 #define BOUNCES 4
-#define SAMPLES 16
+#define SAMPLES 64
 
 #define FILENAME "image.ppm"
 
@@ -19,12 +29,12 @@
 #define TWO_PI 6.283185307
 #define ROOT2 1.41421356237
 
+constexpr int TILE_H_COUNT = HEIGHT / TILE_HEIGHT + 1;
+constexpr int TILE_W_COUNT = WIDTH / TILE_WIDTH + 1;
+
 Vector cameraPos(-3, 5, 5);
 float azimuth = -PI / 4;
 float cameraZRot = -PI / 6;
-// Vector cameraPos(0, 5, 0);
-// float azimuth = -PI / 2;
-// float cameraZRot = 0;
 
 // Global random engine
 std::default_random_engine generator;
@@ -36,6 +46,76 @@ float GetDistance(Vector position, int &hitType);
 
 Vector CheckerColor(Vector pos);
 
+Camera camera(WIDTH, HEIGHT, FOV);
+int pixels[WIDTH * HEIGHT * 3];
+int doneThreads;
+
+// The struct that is in charge of each thread
+struct Task {
+    Task() : my_id{id++} {}
+    Task(int x, int y) : sx{x}, sy{y}, my_id{id++} {}
+
+    bool get_next_task() {
+        static bool taken[TILE_H_COUNT][TILE_W_COUNT] = {};
+        static std::mutex m;
+
+        std::lock_guard<std::mutex> guard{m};
+
+        bool found = false;
+        int x = 0;
+        int y = 0;
+        while (!found) {
+            if (!taken[y][x]) {
+                sx = x * TILE_WIDTH;
+                sy = y * TILE_HEIGHT;
+                taken[y][x] = true;
+                found = true;
+            } else {
+                x++;
+                if (x >= TILE_W_COUNT) { x = 0; y++; }
+                if (y >= TILE_H_COUNT) break;
+            }
+        }
+        return found;
+    }
+
+    void operator()() {
+        bool done = false;
+        do {
+            if (!get_next_task()) {
+                done = true;
+                continue;
+            }
+
+            for (unsigned y = sy; y < sy + TILE_HEIGHT; y++) {
+                for (unsigned x = sx; x < sx + TILE_WIDTH; x++) {
+                    if (x >= WIDTH || y >= HEIGHT) continue;
+                    Vector luminance = Trace(camera.getCameraRay(x, y), SAMPLES);
+                    luminance = luminance + (5. / 241.);
+                    luminance = luminance / (1. + luminance);
+                    Vector color = luminance * 255;
+                    int r = color.x > 255 ? 255 : (int)color.x;
+                    int g = color.y > 255 ? 255 : (int)color.y;
+                    int b = color.z > 255 ? 255 : (int)color.z;
+                    int i = (y * WIDTH + x) * 3;
+                    pixels[i] = r;
+                    pixels[i+1] = g;
+                    pixels[i+2] = b;
+                }
+            }
+        } while (!done);
+
+        printf("Thread %d finished.\n", my_id);
+        doneThreads++;
+    }
+
+    int sx = -1, sy = -1;
+    int my_id;
+    static int id;
+};
+
+int Task::id = 0;
+
 int main() {
     FILE* fp;
     if (fopen_s(&fp, FILENAME, "wb") != 0) {
@@ -44,24 +124,35 @@ int main() {
     }
     fprintf(fp, "P6 %d %d 255\n", WIDTH, HEIGHT);
 
-    Camera camera(WIDTH, HEIGHT, FOV);
     camera.setPosition(cameraPos);
     camera.setZRot(cameraZRot);
     camera.setAzimuth(azimuth);
     camera.cacheLookDir();
 
-    int pixels[WIDTH * HEIGHT * 3];
-    for (int y = 0; y < HEIGHT; y++) {
-        for (int x = WIDTH; x--;) {
-            Vector luminance = Trace(camera.getCameraRay(x, y), SAMPLES);
-            luminance = luminance + (5. / 241.);
-            luminance = luminance / (1 + luminance);
-            Vector color = luminance * 255;
-            int r = color.x > 255 ? 255 : (int)color.x;
-            int g = color.y > 255 ? 255 : (int)color.y;
-            int b = color.z > 255 ? 255 : (int)color.z;
-            fprintf(fp, "%c%c%c", r, g, b);
-        }
+    printf("Rendering %d tiles @ %dX%d...\n", TILE_H_COUNT * TILE_W_COUNT, TILE_WIDTH, TILE_HEIGHT);
+
+    // Setup threads
+    const unsigned int n_threads = std::thread::hardware_concurrency();
+    printf("Detected %d threads.\n", n_threads);
+    std::vector<std::thread> threads{n_threads};
+
+    stopwatch runtime;
+    
+    for (auto &t : threads) t = std::thread{Task{}};
+
+    // Wait for threads to finish (is this good?)
+    while (doneThreads != n_threads) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    for (auto &t: threads) t.join();
+
+    long long millis = runtime.elapsed_millis();
+    float seconds = (float)millis / 1000.;
+    printf("Took %f seconds, avg. of %f tiles per second\n", seconds, TILE_H_COUNT * TILE_W_COUNT / seconds);
+
+    for (int i = 0; i < WIDTH * HEIGHT * 3; i++) {
+        fprintf(fp, "%c", pixels[i]);
     }
 
     fclose(fp);
