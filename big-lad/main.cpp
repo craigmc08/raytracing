@@ -76,6 +76,7 @@ struct Task {
 
     void operator()() {
         bool done = false;
+        int tasksCompleted = 0;
         do {
             if (!get_next_task()) {
                 done = true;
@@ -98,9 +99,10 @@ struct Task {
                     pixels[i+2] = b;
                 }
             }
+            tasksCompleted++;
         } while (!done);
 
-        printf("Thread %d finished.\n", my_id);
+        printf("Thread %d finished and rendered %d tiles.\n", my_id, tasksCompleted);
         doneThreads++;
     }
 
