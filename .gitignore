@@ -2,3 +2,4 @@
 *.ppm
 *.jpg
 *.exe
+!renders/*.png
