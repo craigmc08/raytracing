@@ -216,14 +216,15 @@ Vector IncomingLuminance(RayHit surface, int samples, int depth) {
     Vector sum(0);
 
     Vector ballColor(1, 0.6, 0.9);
+    Vector glassColor(0.3, 0.5, 1);
 
-    if (material == 1) {
+    if (material == 1 || material == 3) {
         // Ball incoming light
         // Vector halfLight = !(lightDir + ray.direction);
         float lightAngle = normal.angleTo(lightDir);
         // Gaussian microfacet brdf
-        float lightStrength = exp(-lightAngle * lightAngle / 0.01);
-        incomingLight = ballColor * incomingLight * lightStrength / TWO_PI;
+        float lightStrength = exp(-lightAngle * lightAngle / 0.001);
+        incomingLight = incomingLight * lightStrength / TWO_PI;
     } else if (material == 2) {
         // Floor
         Vector reflectance = CheckerColor(hitPos);
@@ -232,7 +233,7 @@ Vector IncomingLuminance(RayHit surface, int samples, int depth) {
     sum = incomingLight * samples;
 
     for (int p = samples; p--;) {
-        if (material == 1) {
+        if (material == 1 || material == 3) {
             // Ball
             Vector newDir = ray.direction + normal * (normal % ray.direction * -2);
             Ray reflectRay = {
@@ -240,7 +241,7 @@ Vector IncomingLuminance(RayHit surface, int samples, int depth) {
                 newDir
             };
             Vector L_i = Trace(reflectRay, 1, depth + 1);
-            Vector reflectance = ballColor;
+            Vector reflectance = material == 1 ? ballColor : glassColor;
 
             Vector value = reflectance * L_i / TWO_PI;
             sum = sum + value;
@@ -275,6 +276,7 @@ Vector IncomingLuminance(RayHit surface, int samples, int depth) {
 float GetDistance(Vector p, int &hitType) {
     float distance = 1e9;
 
+    // Infinite reflective spheres
     float x = fmodf(fabsf(p.x), 4);
     float z = fmodf(fabsf(p.z), 4);
     Vector modP = Vector(x, p.y, z);
@@ -282,6 +284,14 @@ float GetDistance(Vector p, int &hitType) {
 
     distance = displacement.magnitude() - 1;
     hitType = 1;
+
+    // Glass sphere
+    float glassDist = (Vector(0, 1, 0) - p).magnitude() - 1.5;
+    if (glassDist < distance) {
+        distance = glassDist;
+        hitType = 3;
+    }
+
 
     float floorDist = p.y;
     if (floorDist < distance) {
