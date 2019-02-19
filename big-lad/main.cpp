@@ -178,13 +178,14 @@ Vector Trace(Ray ray, int samples, int depth) {
 
 Vector GetReflectionRay(Vector normal, Vector incoming, float roughness, float *probability) {
     std::normal_distribution<float> distribution(0.0, roughness / ROOT2);
+    std::uniform_real_distribution<float> uniform(-PI, PI);
 
     Vector up = normal;
     Vector right = up.cross(-incoming);
     Vector forward = up.cross(right);
     
     const float pi2 = PI / 2;
-    float xzRand = distribution(generator);
+    float xzRand = uniform(generator);
     float zyRand = distribution(generator);
     float xzTheta = min(fabsf(xzRand), 2*PI) * (xzRand < 0 ? -1 : 1);
     float zyTheta = min(fabsf(zyRand), pi2) * (zyRand < 0 ? -1 : 1);
