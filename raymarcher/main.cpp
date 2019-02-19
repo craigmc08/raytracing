@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <random>
 #include <mutex>
 #include <thread>
 #include <chrono>
@@ -26,6 +27,7 @@
 
 #define PI 3.141592653
 #define TWO_PI 6.283185307
+#define ROOT2 1.41421356237
 
 constexpr int TILE_H_COUNT = HEIGHT / TILE_HEIGHT + 1;
 constexpr int TILE_W_COUNT = WIDTH / TILE_WIDTH + 1;
@@ -33,6 +35,9 @@ constexpr int TILE_W_COUNT = WIDTH / TILE_WIDTH + 1;
 Vector cameraPos(-3, 5, 5);
 float azimuth = -PI / 4;
 float cameraZRot = -PI / 6;
+
+// Global random engine
+std::default_random_engine generator;
 
 Vector Trace(Ray ray, int samples, int depth=0);
 Vector IncomingLuminance(RayHit surface, int samples, int depth);
@@ -171,6 +176,36 @@ Vector Trace(Ray ray, int samples, int depth) {
     return emission + incoming;
 }
 
+Vector GetReflectionRay(Vector normal, Vector incoming, float roughness, float *probability) {
+    std::normal_distribution<float> distribution(0.0, roughness / ROOT2);
+    std::uniform_real_distribution<float> uniform(-PI, PI);
+
+    Vector up = normal;
+    Vector right = up.cross(-incoming);
+    Vector forward = up.cross(right);
+    
+    const float pi2 = PI / 2;
+    float xzRand = uniform(generator);
+    float zyRand = distribution(generator);
+    float xzTheta = min(fabsf(xzRand), 2*PI) * (xzRand < 0 ? -1 : 1);
+    float zyTheta = min(fabsf(zyRand), pi2) * (zyRand < 0 ? -1 : 1);
+
+    float sinXZ, cosXZ;
+    sincosf(xzTheta, &sinXZ, &cosXZ);
+    float sinZY, cosZY;
+    sincosf(zyTheta, &sinZY, &cosZY);
+
+    Vector halfRay = (right * sinXZ + forward * cosXZ) * sinZY + up * cosZY;
+    halfRay = halfRay;
+
+    Vector reflectRay = incoming + halfRay * (halfRay % incoming * -2);
+    // Very long print statement for debugging purposes
+    // printf("actual: %6.3f, expected: %6.3f, normal: (%6.3f, %6.3f, %6.3f), half: (%6.3f, %6.3f, %6.3f)\n", angle, zyTheta, normal.x, normal.y, normal.z, halfRay.x, halfRay.y, halfRay.z);
+    *probability = expf(- zyTheta * zyTheta / roughness / roughness);
+
+    return reflectRay;
+}
+
 Vector IncomingLight(RayHit hit, Vector &lightDir) {
     int material = hit.material;
     Vector normal = hit.normal;
@@ -218,12 +253,14 @@ Vector IncomingLuminance(RayHit surface, int samples, int depth) {
     Vector ballColor(1, 0.6, 0.9);
     Vector glassColor(0.3, 0.5, 1);
 
+    float ballRoughness = material == 1 ? 0.05 : 0.1;
+
     if (material == 1 || material == 3) {
         // Ball incoming light
-        // Vector halfLight = !(lightDir + ray.direction);
-        float lightAngle = normal.angleTo(lightDir);
+        Vector halfLight = !(lightDir + -ray.direction);
+        float lightAngle = normal.angleTo(halfLight);
         // Gaussian microfacet brdf
-        float lightStrength = exp(-lightAngle * lightAngle / 0.001);
+        float lightStrength = exp(-lightAngle * lightAngle / (ballRoughness * ballRoughness));
         incomingLight = incomingLight * lightStrength / TWO_PI;
     } else if (material == 2) {
         // Floor
@@ -235,15 +272,19 @@ Vector IncomingLuminance(RayHit surface, int samples, int depth) {
     for (int p = samples; p--;) {
         if (material == 1 || material == 3) {
             // Ball
-            Vector newDir = ray.direction + normal * (normal % ray.direction * -2);
+            float rayProbability;
+            Vector newDir = GetReflectionRay(normal, ray.direction, ballRoughness, &rayProbability);
             Ray reflectRay = {
                 hitPos + normal * 0.05,
                 newDir
             };
+            Vector halfVector = !(newDir + ray.direction);
+            float reflectAngle = acosf(halfVector % normal);
+            float reflectStrength = expf(-reflectAngle * reflectAngle / 0.01);
             Vector L_i = Trace(reflectRay, 1, depth + 1);
             Vector reflectance = material == 1 ? ballColor : glassColor;
 
-            Vector value = reflectance * L_i / TWO_PI;
+            Vector value = reflectance * L_i / 1;
             sum = sum + value;
         } else if (material == 2) {
             // Floor
