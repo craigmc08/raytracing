@@ -30,10 +30,11 @@ int main() {
 
     Camera* camera = new Camera();
     // Camera position. y is up
-    camera.origin = Vector(0, 6, 6);
+    camera.setPosition(Vector(0, 6, 6));
+    camera.setFOV(45f); // field of view of camera in degrees
     // Setting camera view angles in degrees
-    camera.azimuth = 0f; // y axis rotation. 0 corresponds to -1 on z-axis being forward
-    camera.altitude = -45f; // angle above/below horizon
+    camera.setAzimuth(0f); // y axis rotation. 0 corresponds to -1 on z-axis being forward
+    camera.setAltitude(-45f); // angle above/below horizon
 
     // Infinite level plane at y-height 0
     Floor* floor = new Floor(0f);
