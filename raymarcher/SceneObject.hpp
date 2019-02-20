@@ -8,9 +8,9 @@
 class SceneObject {
 private:
 public:
-    SolidMaterial* material;
+    Material* material;
 
-    SolidMaterial* GetMaterial() { return material; }
+    Material* GetMaterial() { return material; }
     float GetDistance(Vector position) { return 1e9; }
 };
 
