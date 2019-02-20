@@ -71,8 +71,9 @@ public:
         // Up is cosine(altitude) because altitude is weighted towards 0 rad
         Vector halfRay = (right * sinaz + forward * cosaz) * sinal + up * cosal;
         Vector reflectRay = incoming + halfRay * (halfRay % incoming * -2);
-        
-        *probability = expf(-altitude * altitude / roughness / roughness);
+
+        // Probability is guassian microfacet probability * the angle probability (1 / TWO_PI)
+        *probability = expf(-altitude * altitude / roughness / roughness) * (1 / TWO_PI);
         return reflectRay;
     }
 };
