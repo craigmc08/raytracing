@@ -50,7 +50,7 @@ int main() {
     sphere.material = sphereMat;
 
     // Create sun pointing (-1, -1, -1) with color (1, 0.95, 0.9)
-    scene.CreateSun(Vector(-1, -1, -1), Vector(1, 0.95, 0.9));
+    scene.SetSun(Vector(-1, -1, -1), Vector(1, 0.95, 0.9));
 
     scene.SetCamera(camera);
     scene.AddObject(floor);
