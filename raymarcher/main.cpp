@@ -25,10 +25,6 @@
 
 #define FILENAME "image.ppm"
 
-#define PI 3.141592653
-#define TWO_PI 6.283185307
-#define ROOT2 1.41421356237
-
 constexpr int TILE_H_COUNT = HEIGHT / TILE_HEIGHT + 1;
 constexpr int TILE_W_COUNT = WIDTH / TILE_WIDTH + 1;
 
