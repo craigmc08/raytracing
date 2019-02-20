@@ -7,51 +7,51 @@
 #include "util.hpp"
 
 class Camera {
-public:
-    int width;
-    int height;
+private:
+    float width;
+    float height;
     float fov;
 
     Vector position;
-    float zRot;
+    float altitude;
     float azimuth;
 
     Vector forward;
     Vector right;
     Vector up;
+public:
+    Camera();
 
-    Camera(int width, int height, float fov) {
-        this->width = width;
-        this->height = height;
-        this->fov = fov;
+    void setSceneSettings(int width, int height) {
+        this->width = (float)width;
+        this->height = (float)height;
     }
 
-    void setPosition(Vector position) {
-        this->position = position;
+    void setPosition(Vector pos) {
+        position = pos;
     }
-
-    void setZRot(float rot) {
-        zRot = rot;
+    void setAltitude(float rot) {
+        altitude = rot;
     }
     void setAzimuth(float rot) {
         azimuth = rot;
     }
 
     void cacheLookDir() {
-        Vector axisForward = -Vector(sinf(zRot), 0, cosf(zRot));
+        Vector axisForward = -Vector(sinf(azimuth), 0, cosf(azimuth));
 
-        forward = axisForward * cosf(azimuth) + Vector(0, 1, 0) * sinf(azimuth);
-        up = axisForward * -sinf(azimuth) + Vector(0, 1, 0) * cosf(azimuth);
+        forward = axisForward * cosf(altitude) + Vector(0, 1, 0) * sinf(altitude);
+        up = axisForward * -sinf(altitude) + Vector(0, 1, 0) * cosf(altitude);
         right = forward.cross(up);
     }
 
     // Calculate ray through image plane and convert to world coordinates
     Ray getCameraRay(int x, int y) {
-        float aspect = (float)width / (float)height;
+        float aspect = width / height;
         // Magic number is in fact pi / 2 / 180
         float pixelMult = tanf(fov * 0.00872664625);
-        float px = ((x + 0.5 + random()*0) / (float)width * 2 - 1) * pixelMult * aspect;
-        float py = ((height - y + 0.5 + random()*0) / (float)height * 2 - 1) * pixelMult;
+        float px = ((x + 0.5) / width * 2 - 1) * pixelMult * aspect;
+        float py = ((height - y + 0.5) / height * 2 - 1) * pixelMult;
 
         Vector target = !Vector(px, py, 1);
 
