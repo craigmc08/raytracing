@@ -1,3 +1,8 @@
+// https://bunjevac.net/2019/02/14/parallelizing-raytracer-in-a-weekend.html
+// This whole task class (as well as most of the code/method for multi-threading)
+// come from this article. Made some modifications, but it is almost the
+// same.
+
 #ifndef TASK_H_
 #define TASK_H_
 
