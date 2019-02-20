@@ -15,6 +15,14 @@ public:
     }
 };
 
+class MirrorBRDF: public BRDF {
+public:
+    Vector SampleRay(Vector normal, Vector incoming, float* probability) {
+        *probability = 1;
+        return incoming + normal * (normal % incoming * -2);
+    }
+};
+
 class LambertianBRDF: public BRDF {
 private:
     std::uniform_real_distribution<float> rand2Pi;
@@ -39,7 +47,7 @@ public:
     }
 };
 
-class GlossyBRDF {
+class GlossyBRDF: public BRDF {
 private:
     std::uniform_real_distribution<float> rand2Pi;
     std::normal_distribution<float> randHalfPi;
