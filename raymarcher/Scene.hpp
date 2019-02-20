@@ -20,17 +20,17 @@ private:
 
     std::vector<SceneObject*> objects;
 public:
-    void setSize(int w, int h) {
-        width = w;
-        height = h;
+    void setSize(int width, int height) {
+        this->width = width;
+        this->height = height;
     }
-    void setSamples(int s) {
-        samples = s;
+    void setSamples(int samples) {
+        this->samples = samples;
     }
 
-    void SetCamera(Camera* cam) {
-        camera = cam;
+    void SetCamera(Camera* camera) {
         camera->setSceneSettings(width, height);
+        this->camera = camera;
     }
     void SetSun(Vector direction, Vector color) {
         sunDirection = direction.normalized();
