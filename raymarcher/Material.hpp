@@ -86,17 +86,56 @@ public:
     }
 };
 
-// Solid colored material with BRDF
-class SolidMaterial {
-private:
-    Vector surfaceColor;
+class Material {
 public:
     BRDF* brdf;
-    void SetSurfaceColor(Vector color) {
-        surfaceColor = color;
+
+    Material() {
+        brdf = new BRDF();
+    }
+    Vector SampleColor(Vector worldPosition) {
+        return 0;
+    }
+};
+
+// Solid colored material with BRDF
+class SolidMaterial: public Material {
+public:
+    Vector surfaceColor;
+    BRDF* brdf;
+
+    SolidMaterial() {
+        brdf = new BRDF();
+        surfaceColor = Vector(1, 0, 1);
+    }
+    SolidMaterial(BRDF* brdf, Vector surfaceColor) {
+        this->brdf = brdf;
+        this->surfaceColor = surfaceColor;
     }
     Vector SampleColor(Vector worldPosition) {
         return surfaceColor;
+    }
+};
+
+class CheckerMaterial: public Material {
+public:
+    float checkerScale;
+    Vector color1;
+    Vector color2;
+    BRDF* brdf;
+
+    CheckerMaterial(BRDF* brdf, float checkerScale, Vector color1, Vector color2) {
+        this->brdf = brdf;
+        this->checkerScale = checkerScale;
+        this->color1 = color1;
+        this->color2 = color2;
+    }
+    Vector SampleColor(Vector worldPosition) {
+        float spacing = checkerScale;
+        float quarterSpacing = checkerScale / 4;
+        float cx = fmodf(fabsf(worldPosition.x) + quarterSpacing, spacing) / spacing * 2 - 1;
+        float cy = fmodf(fabsf(worldPosition.z) + quarterSpacing, spacing) / spacing * 2 - 1;
+        return cy * cx < 0 ? Vector(0.7) : Vector(1);
     }
 };
 
