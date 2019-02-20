@@ -74,9 +74,16 @@ struct Vector {
             x * o.y - y * o.x
         );
     }
+    Vector dot(Vector o) {
+        return *this % o;
+    }
     
     float angleTo(Vector b) {
         return acosf(*this % b);
+    }
+
+    Vector normalized() {
+        return !*this;
     }
 };
 
