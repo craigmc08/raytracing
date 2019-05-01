@@ -3,3 +3,4 @@
 *.jpg
 *.exe
 !renders/*.png
+gpu-raytracer/gpu-raytracer/.vs

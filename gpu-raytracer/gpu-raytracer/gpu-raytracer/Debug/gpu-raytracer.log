@@ -1,0 +1,4 @@
+﻿  main.cpp
+d:\dev\raytracing\gpu-raytracer\gpu-raytracer\gpu-raytracer\main.cpp(44): warning C4305: 'initializing': truncation from 'double' to 'float'
+d:\dev\raytracing\gpu-raytracer\gpu-raytracer\gpu-raytracer\main.cpp(45): warning C4305: 'initializing': truncation from 'double' to 'float'
+  gpu-raytracer.vcxproj -> D:\dev\raytracing\gpu-raytracer\gpu-raytracer\Debug\gpu-raytracer.exe
